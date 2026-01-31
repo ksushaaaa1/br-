@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>VR Сбор объектов</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <!-- Упрощенный физический движок -->
+    <script src="https://unpkg.com/aframe-physics-system@4.0.1/dist/aframe-physics-system.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+        #hud {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: white;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px black;
+            z-index: 1000;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 10px;
+        }
+        #timer {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            color: white;
+            font-size: 24px;
+            text-shadow: 2px 2px 4px black;
+            z-index: 1000;
+            background: rgba(0,0,0,0.5);
+            padding: 10px;
+            border-radius: 10px;
+        }
+        #gameOver {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 48px;
+            text-shadow: 2px 2px 4px black;
+            z-index: 1000;
+            background: rgba(0,0,0,0.8);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            display: none;
+        }
+        .restart-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .restart-btn:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <!-- HUD элементы -->
+    <div id="hud">Собрано: <span id="score">0</span>/10</div>
+    <div id="timer">Время: <span id="timeLeft">60</span> сек</div>
+    <div id="gameOver">
+        <div id="gameOverText"></div>
+        <button class="restart-btn" onclick="restartGame()">Начать заново</button>
+    </div>
+
+    <!-- Основная VR сцена -->
+    <a-scene physics="debug: false; gravity: 0 -9.8 0" 
+              cursor="rayOrigin: mouse"
+              raycaster="objects: .collectible">
+        
+        <!-- Камера и управление игроком -->
+        <a-entity id="player" position="0 1.6 0">
+            <a-camera id="camera" look-controls="pointerLockEnabled: true" wasd-controls="acceleration: 65">
+                <a-cursor></a-cursor>
+            </a-camera>
+        </a-entity>
+
+        <!-- Небо -->
+        <a-sky color="#87CEEB"></a-sky>
+
+        <!-- Пол -->
+        <a-plane position="0 0 0" rotation="-90 0 0" width="30" height="30" 
+                 color="#7CFC00" static-body></a-plane>
+
+        <!-- Стены -->
+        <a-box position="0 2.5 -15" width="30" height="5" depth="1" color="#808080" static-body></a-box>
+        <a-box position="0 2.5 15" width="30" height="5" depth="1" color="#808080" static-body></a-box>
+        <a-box position="-15 2.5 0" width="1" height="5" depth="30" color="#808080" static-body></a-box>
+        <a-box position="15 2.5 0" width="1" height="5" depth="30" color="#808080" static-body></a-box>
+
+        <!-- Собираемые объекты (10 штук) -->
+        <!-- Красные кубы -->
+        <a-box class="collectible" id="obj1" position="-5 1 -5" width="1" height="1" depth="1" 
+               color="#FF0000" dynamic-body="mass: 1" data-collected="false"></a-box>
+        <a-box class="collectible" id="obj2" position="5 1 -5" width="1" height="1" depth="1" 
+               color="#FF0000" dynamic-body="mass: 1" data-collected="false"></a-box>
+        
+        <!-- Синие сферы -->
+        <a-sphere class="collectible" id="obj3" position="-8 1 0" radius="0.5" 
+                  color="#0000FF" dynamic-body="mass: 1" data-collected="false"></a-sphere>
+        <a-sphere class="collectible" id="obj4" position="8 1 0" radius="0.5" 
+                  color="#0000FF" dynamic-body="mass: 1" data-collected="false"></a-sphere>
+        
+        <!-- Зеленые цилиндры -->
+        <a-cylinder class="collectible" id="obj5" position="-5 1 5" radius="0.5" height="1" 
+                    color="#00FF00" dynamic-body="mass: 1" data-collected="false"></a-cylinder>
+        <a-cylinder class="collectible" id="obj6" position="5 1 5" radius="0.5" height="1" 
+                    color="#00FF00" dynamic-body="mass: 1" data-collected="false"></a-cylinder>
+        
+        <!-- Желтые конусы -->
+        <a-cone class="collectible" id="obj7" position="0 1 -10" radius-bottom="0.5" height="1" 
+                color="#FFFF00" dynamic-body="mass: 1" data-collected="false"></a-cone>
+        <a-cone class="collectible" id="obj8" position="0 1 10" radius-bottom="0.5" height="1" 
+                color="#FFFF00" dynamic-body="mass: 1" data-collected="false"></a-cone>
+        
+        <!-- Фиолетовые торусы -->
+        <a-torus class="collectible" id="obj9" position="-10 1 -10" radius="0.5" radius-tubular="0.1" 
+                 color="#800080" dynamic-body="mass: 1" data-collected="false"></a-torus>
+        <a-torus class="collectible" id="obj10" position="10 1 10" radius="0.5" radius-tubular="0.1" 
+                 color="#800080" dynamic-body="mass: 1" data-collected="false"></a-torus>
+
+        <!-- Движущийся объект (задание 4) -->
+        <a-entity id="movingObj" geometry="primitive: cone" material="color: red"
+                  position="0 2 -8" animation="property: position; to: 5 2 -8; dur: 2000; loop: true; dir: alternate"
+                  dynamic-body="mass: 2">
+        </a-entity>
+
+        <!-- Объект с гравитацией (задание 6) -->
+        <a-entity geometry="primitive: box" material="color: blue"
+                  position="0 5 -10" dynamic-body id="fallingBox">
+        </a-entity>
+
+        <!-- Источник света -->
+        <a-light type="ambient" color="#FFFFFF" intensity="0.6"></a-light>
+        <a-light type="directional" color="#FFFFFF" intensity="0.8" position="-1 5 1"></a-light>
+
+        <!-- Элемент для звука -->
+        <a-assets>
+            <audio id="collectSound" src="https://github.com/jackyyang09/Simple-Unity-Audio-Manager.git"></audio>
+        </a-assets>
+        <a-sound src="#collectSound" autoplay="false" id="soundCollect"></a-sound>
+        <a-sound src="yoursound.wav" autoplay="false" id="collectSound"></a-sound>
+
+    </a-scene>
+
+    <script>
+        // === КОД СТУДЕНТА: Иванов Иван Иванович, группа ПРОГ-202 ===
+        
+        let score = 0;
+        let timeLeft = 60;
+        let gameActive = true;
+        const totalObjects = 10;
+        let timerInterval;
+
+        // Инициализация игры
+        function initGame() {
+            score = 0;
+            timeLeft = 60;
+            gameActive = true;
+            document.getElementById('score').textContent = score;
+            document.getElementById('timeLeft').textContent = timeLeft;
+            document.getElementById('gameOver').style.display = 'none';
+            
+            // Сброс всех объектов
+            for (let i = 1; i <= totalObjects; i++) {
+                const obj = document.getElementById(`obj${i}`);
+                obj.setAttribute('visible', 'true');
+                obj.setAttribute('data-collected', 'false');
+                obj.setAttribute('position', getInitialPosition(i));
+            }
+            
+            // Запуск таймера
+            clearInterval(timerInterval);
+            timerInterval = setInterval(updateTimer, 1000);
+        }
+
+        // Функция для получения начальных позиций (задание 5)
+        function getInitialPosition(index) {
+            const positions = [
+                {x: -5, y: 1, z: -5},
+                {x: 5, y: 1, z: -5},
+                {x: -8, y: 1, z: 0},
+                {x: 8, y: 1, z: 0},
+                {x: -5, y: 1, z: 5},
+                {x: 5, y: 1, z: 5},
+                {x: 0, y: 1, z: -10},
+                {x: 0, y: 1, z: 10},
+                {x: -10, y: 1, z: -10},
+                {x: 10, y: 1, z: 10}
+            ];
+            return `${positions[index-1].x} ${positions[index-1].y} ${positions[index-1].z}`;
+        }
+
+        // Обновление таймера
+        function updateTimer() {
+            if (!gameActive) return;
+            
+            timeLeft--;
+            document.getElementById('timeLeft').textContent = timeLeft;
+            
+            if (timeLeft <= 0) {
+                endGame(false);
+            }
+        }
+
+        // Обработка сбора объекта
+        function collectObject(objId) {
+            if (!gameActive) return;
+            
+            const obj = document.getElementById(objId);
+            if (obj.getAttribute('data-collected') === 'true') return;
+            
+            // Помечаем как собранный
+            obj.setAttribute('data-collected', 'true');
+            
+            // Воспроизводим звук (задание 3)
+            try {
+                document.querySelector('#soundCollect').components.sound.playSound();
+            } catch (e) {
+                console.log("Звук не воспроизведен:", e);
+            }
+            
+            // Создаем простой эффект исчезновения (вместо частиц)
+            const objPos = obj.getAttribute('position');
+            
+            // Анимация исчезновения
+            obj.setAttribute('animation', {
+                property: 'scale',
+                to: '0 0 0',
+                dur: 300,
+                easing: 'easeInQuad'
+            });
+            
+            // Скрываем объект
+            setTimeout(() => {
+                obj.setAttribute('visible', 'false');
+                obj.removeAttribute('animation');
+                obj.setAttribute('scale', '1 1 1');
+            }, 300);
+            
+            // Обновляем счет
+            score++;
+            document.getElementById('score').textContent = score;
+            
+            // Проверяем победу
+            if (score >= totalObjects) {
+                endGame(true);
+            }
+        }
+
+        // Завершение игры
+        function endGame(isWin) {
+            gameActive = false;
+            clearInterval(timerInterval);
+            
+            const gameOver = document.getElementById('gameOver');
+            const gameOverText = document.getElementById('gameOverText');
+            
+            if (isWin) {
+                gameOverText.textContent = `ПОБЕДА! Вы собрали все объекты за ${60 - timeLeft} секунд!`;
+                gameOverText.style.color = "#4CAF50";
+            } else {
+                gameOverText.textContent = `ВРЕМЯ ВЫШЛО! Собрано объектов: ${score}/${totalObjects}`;
+                gameOverText.style.color = "#FF0000";
+            }
+            
+            gameOver.style.display = 'block';
+        }
+
+        // Перезапуск игры
+        function restartGame() {
+            initGame();
+        }
+
+        // Компонент для пользовательской гравитации (задание 7)
+        AFRAME.registerComponent('custom-gravity', {
+            init: function () {
+                // Применяем гравитацию через физический движок
+                this.el.setAttribute('dynamic-body', 'mass: 2');
+            }
+        });
+
+        // Создаем простую систему частиц (задание 2 - альтернативная реализация)
+        AFRAME.registerComponent('simple-particles', {
+            schema: {
+                color: {type: 'string', default: 'yellow'},
+                count: {type: 'number', default: 10}
+            },
+            
+            init: function() {
+                this.particles = [];
+            },
+            
+            play: function() {
+                const color = this.data.color;
+                const count = this.data.count;
+                
+                for (let i = 0; i < count; i++) {
+                    const particle = document.createElement('a-sphere');
+                    particle.setAttribute('radius', '0.1');
+                    particle.setAttribute('color', color);
+                    particle.setAttribute('position', this.el.getAttribute('position'));
+                    
+                    // Случайное направление
+                    const x = (Math.random() - 0.5) * 2;
+                    const y = Math.random() * 2;
+                    const z = (Math.random() - 0.5) * 2;
+                    
+                    particle.setAttribute('animation', {
+                        property: 'position',
+                        to: `${x} ${y} ${z}`,
+                        dur: 1000,
+                        easing: 'easeOutQuad'
+                    });
+                    
+                    particle.setAttribute('animation__scale', {
+                        property: 'scale',
+                        to: '0 0 0',
+                        dur: 1000,
+                        easing: 'easeInQuad'
+                    });
+                    
+                    this.el.sceneEl.appendChild(particle);
+                    this.particles.push(particle);
+                    
+                    // Удаляем через 1 секунду
+                    setTimeout(() => {
+                        if (particle.parentNode) {
+                            particle.parentNode.removeChild(particle);
+                        }
+                    }, 1000);
+                }
+            }
+        });
+
+        // Обработка кликов по объектам
+        document.addEventListener('click', function (event) {
+            const cursor = document.querySelector('a-cursor');
+            if (cursor && cursor.components.cursor) {
+                const intersected = cursor.components.cursor.intersectedEl;
+                
+                if (intersected && intersected.classList.contains('collectible')) {
+                    collectObject(intersected.id);
+                    
+                    // Создаем эффект частиц на месте объекта
+                    const explosion = document.createElement('a-entity');
+                    explosion.setAttribute('position', intersected.getAttribute('position'));
+                    explosion.setAttribute('simple-particles', 'color: yellow; count: 15');
+                    document.querySelector('a-scene').appendChild(explosion);
+                    
+                    // Удаляем через 1.1 секунды
+                    setTimeout(() => {
+                        if (explosion.parentNode) {
+                            explosion.parentNode.removeChild(explosion);
+                        }
+                    }, 1100);
+                }
+            }
+        });
+
+        // Инициализация при загрузке
+        window.addEventListener('DOMContentLoaded', function () {
+            // Ждем загрузки сцены
+            setTimeout(() => {
+                initGame();
+                
+                // Применяем кастомную гравитацию к падающему объекту
+                const fallingBox = document.getElementById('fallingBox');
+                if (fallingBox) {
+                    fallingBox.setAttribute('custom-gravity', '');
+                }
+                
+                // Добавляем обработчики событий для всех объектов
+                for (let i = 1; i <= totalObjects; i++) {
+                    const obj = document.getElementById(`obj${i}`);
+                    if (obj) {
+                        obj.addEventListener('click', function() {
+                            collectObject(this.id);
+                        });
+                    }
+                }
+                
+                // Выводим сообщение об успешной загрузке
+                console.log("Игра успешно загружена!");
+            }, 1000);
+        });
+
+    
+    </script>
+</body>
+</html>
